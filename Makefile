@@ -20,4 +20,4 @@ cave.o: cave.cpp
 	$(CPP) -c $(CPPFLAGS) cave.cpp -o cave.o $(INCLUDE)
 
 clean:
-	rm $(OBJS) $(TARGET) -f
+	rm $(OBJS) $(TARGET)
