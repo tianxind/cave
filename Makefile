@@ -5,7 +5,7 @@ CPPFLAGS = -O3 -fPIC -DEIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS -DEIGEN_YES_I_K
 LDFLAGS = -O3 -framework GLUT -framework OpenGL
 LIB = -lOpenMeshCored -lOpenMeshToolsd -Wl,-rpath,$(OPENMESH_LIB_DIR) 
 TARGET = cave
-OBJS = cave.o
+OBJS = cave.o simplex.o
 
 default: $(OBJS)
 	$(LD) $(OBJS) $(LDFLAGS) -L$(OPENMESH_LIB_DIR) $(LIB) -o $(TARGET)
@@ -18,6 +18,9 @@ cave: $(OBJS)
 
 cave.o: cave.cpp
 	$(CPP) -c $(CPPFLAGS) cave.cpp -o cave.o $(INCLUDE)
+
+simplex.o: simplex/simplexnoise.cpp
+	$(CPP) -c $(CPPFLAGS) simplex/simplexnoise.cpp -o simplex.o $(INCLUDE)
 
 clean:
 	rm $(OBJS) $(TARGET)

@@ -9,7 +9,7 @@ using namespace std;
 using namespace Eigen;
 using namespace OpenMesh;
 
-double numSubT = 3; //this is the number of pieces each wall segment will be broken into
+double numSubT = 6; //this is the number of pieces each wall segment will be broken into
 Eigen::Matrix4d m;
 Eigen::Matrix4d b;
 // Eigen::Matrix4d firstM;
@@ -70,7 +70,7 @@ Vec3f getPoint(double u, Vec3f p1, Vec3f p2, Vec3f p3, Vec3f p4) {
 void drawSpline(vector<Vec3f> frames){
 	if (frames.size() == 0) return;
 	glColor3f(1.0, 0.0, 0.0);
-	glBegin(GL_LINE_STRIP);
+	glBegin(GL_LINE_LOOP);
 	for (int i = 0; i < frames.size(); i++){
 		 glVertex3f(frames[i][0], frames[i][1], frames[i][2]);
 	}
@@ -130,7 +130,7 @@ vector<vector<Vec3f> > readControlPts(string filename) {
 		            Vec3f ctrlPt;
 		            ctrlPt[0] = x; ctrlPt[1] = y; ctrlPt[2] = z;
 		            pts.push_back(ctrlPt);
-		            // cout << x << ", " << y << ", " << z << endl;
+		            cout << x << ", " << y << ", " << z << endl;
 	        	} else {
 	        		break;
 	        	}
@@ -151,12 +151,16 @@ vector<vector<Vec3f> > readControlPts(string filename) {
     for (int k = 0; k < 4; k++){
     	vector<Vec3f> pts;
 		for (int i = 0; i < perRow; i++){ //i is index of keyframe beginning segment
-			for (double j = 0; j < 1; j += 1/numSubT){
+			double j = 0;
+			//for (double j = 0; j < 1; j += 1/numSubT){
+			for (int loop = 0; loop < numSubT; loop++){
 				// (i == 0) ? head = true : head = false;//first segment
 				// (i == kframes.size() - 2) ? tail = true : tail = false;//last segment
 				iPoint = getPoint(j, kframes[k][(i-1 + perRow)%perRow], kframes[k][i], kframes[k][(i+1)%perRow], kframes[k][(i+2)%perRow]);
 				pts.push_back(iPoint);
+				j += 1/numSubT;
 			}
+
 		}
 		pts.push_back(pts[0]);
 		iframes.push_back(pts);
