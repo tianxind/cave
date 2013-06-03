@@ -17,7 +17,7 @@
 
 
 #include <math.h>
-
+#include <stdlib.h>
 #include "simplexnoise.h"
 
 
@@ -44,6 +44,24 @@ noise value  at each frame. By adding a second parameter on the second
 dimension, you can ensure that each gets a unique noise value and they don't
 all look identical.
 */
+
+//ADDITIONAL CODE BIT TO RANDOMISE PERMUTATION TABLE ADAPTED FROM http://buddat.net/?p=96
+void genGrad(long seed) {
+        srand(seed);
+        int p[255];
+        for(int i = 0; i < 255; i++)
+          p[i] = i;
+        for(int i = 0; i < 255; i++) {
+          int j = rand() % 255;
+          int nSwap = p[i];
+          p[i]  = p[j];
+          p[j]  = nSwap;
+        }
+        for(int i = 0; i < 512; i++){
+                perm[i] = p[i & 255];
+        }
+    }
+//END
 
 
 // 2D Multi-octave Simplex noise.

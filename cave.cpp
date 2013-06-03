@@ -8,12 +8,13 @@
 #include <GLUT/glut.h>
 #include "spline.h"
 #include "simplex/simplexnoise.h"
+#include <time.h>
 
 using namespace Eigen;
 using namespace std;
 using namespace OpenMesh;
 
-static const double pi = 3.14159265359;
+//static const double pi = 3.14159265359;
 //static int kMsecsPerFrame = 100;
 //static struct timeval last_idle_time;
 vector<vector<Vec3f> > meshSpec;
@@ -28,9 +29,9 @@ float specular[] = {1.0, 1.0, 1.0, 1.0};
 
 // Number of vertices and faces of the mesh
 int n_vertices = 0, n_faces = 0;
-int detailm = 20;
-int detailn = 20;
-int baseDetail = 3;
+int detailm = 50;
+int detailn = 50;
+int baseDetail = detailm/2;
 double xDist = 0;
 double yDist = 0;
 double zDist = 0;
@@ -468,30 +469,34 @@ void calculateV(Mesh* cave, int cPerRow, int perRow, int numV, Mesh::VertexHandl
             if (abs(Xv[m][n]) > xDist) xDist = abs(Xv[m][n]);
             if (abs(Yv[m][n]) > yDist) yDist = abs(Yv[m][n]);
             if (abs(Zv[m][n]) > zDist) zDist = abs(Zv[m][n]);
-
-            cave->set_normal(vhandle[index], Vec3f(Xn[m][n],Yn[m][n],Zn[m][n]));
+            Vec3f norm(Xn[m][n],Yn[m][n],Zn[m][n]);
+            cave->set_normal(vhandle[index], norm);
             cave->set_texcoord2D(vhandle[index], Vec2f(0,0));
             // cout << index << endl;
-            if (index >= perRow * detailm){
+            if (index >= perRow * detailm){//base of the wall
               center += point;
               base.push_back(point);
-              baseN.push_back(Vec3f(Xn[m][n],Yn[m][n],Zn[m][n]));
             }
           }
     }
   }
-  // //calculate normal for base point
+  //calculate normal for base point
   int baseV = perRow * (baseDetail-1);
   Vec3f n(0,0,0);
   center = Vec3f(center[0]/perRow, center[1]/perRow, center[2]/perRow);
   for (int i = 0; i < perRow-1; i++){
     Vec3f faceN = (base[i+1] - center) % (base[i] - center);
-    faceN = faceN.normalize();
-    //cout << faceN << endl;
+    //faceN = faceN.normalize();
+    // cout << faceN << endl;
+    baseN.push_back(faceN);
     n += faceN;
   }
+  Vec3f last = (base[0] - center) % (base[perRow-1] - center);
+  n += last;
+  baseN.push_back(last);
   vhandle[numV + baseV] = cave->add_vertex(center);
-  cave->set_normal(vhandle[numV + baseV], Vec3f(n[0]/perRow, n[1]/perRow, n[2]/perRow));
+  n = Vec3f(n[0]/perRow, n[1]/perRow, n[2]/perRow);
+  cave->set_normal(vhandle[numV + baseV], n.normalize());
 
   //calculate base
   double inc = 1/(double)baseDetail;
@@ -502,10 +507,18 @@ void calculateV(Mesh* cave, int cPerRow, int perRow, int numV, Mesh::VertexHandl
       double inv = 1-delta;
       Vec3f point = Vec3f(base[j][0]*inv + center[0]*delta, base[j][1]*inv + center[1]*delta, base[j][2]*inv + center[2]*delta);
       vhandle[n_vertices + i*perRow + j] = cave->add_vertex(point);
-      cave->set_normal(vhandle[n_vertices + i*perRow + j], baseN[j]);
+      cave->set_normal(vhandle[n_vertices + i*perRow + j], Vec3f(0,1,0));
     }
     delta += inc;
   }
+
+  // for (int i = perRow * detailm; i < perRow * (detailm + 1); i++){
+  //   Vec3f temp = cave->normal(vhandle[i]);
+  //   temp += Vec3f(0,2/5,0);
+  //   temp = temp.normalize();
+  //   cave->set_normal(vhandle[i], temp);
+  // }
+  //Vec3f pointN = baseN[(j-1+perRow)%perRow] + baseN[j];
 }
 
 void init() {
@@ -582,10 +595,10 @@ void display() {
     glEnd();
   }
   
-  for (int i = 0; i < meshSpec[0].size() - 3; i+=3){
-    drawSurface(i);
-  }
-  drawFloor(meshSpec[3]);
+  // for (int i = 0; i < meshSpec[0].size() - 3; i+=3){
+  //   drawSurface(i);
+  // }
+  // drawFloor(meshSpec[3]);
   for (int i = 0; i < 4; i++){
     drawSpline(meshSpec[i]);
   }
@@ -632,20 +645,21 @@ void mouseMoved(int x, int y) {
 }
 
 void createCaveMesh() {
-  meshSpec = readControlPts("control.txt");
+  //meshSpec = readControlPts("keyframes.txt"); //use this to read control points from a file
+  meshSpec = genControlPts(5, 8, 4);
   //set up mesh
   Mesh mesh;
   mesh.request_vertex_normals();
-  mesh.request_face_normals();
+  //mesh.request_face_normals();
   mesh.request_vertex_texcoords2D();
   int cPerRow = meshSpec[0].size();
-  cout << cPerRow << endl;
   int perRow = detailn*(cPerRow-1)/3;
   int perCol = detailm + 1;
   n_vertices = perRow * perCol;
   int baseVertices = perRow*(baseDetail-1);
   Mesh::VertexHandle vhandle[n_vertices + baseVertices + 1];
   vector<Mesh::VertexHandle> face_vhandles;
+  genGrad(time(NULL)); //randomise noise
   calculateV(&mesh, cPerRow, perRow, n_vertices, vhandle);
   //walls
   for (int i = 0; i < perCol-1 + baseDetail-1; i++){
@@ -690,16 +704,18 @@ void createCaveMesh() {
   face_vhandles.push_back(vhandle[n_vertices + baseVertices - perRow]);
   mesh.add_face(face_vhandles);
 
-  mesh.update_normals(); 
+  //add noise
+  double scale = max( max(xDist, yDist), zDist);
+  //mesh.update_normals(); 
   for (Mesh::ConstVertexIter vIt = mesh.vertices_begin(); vIt != mesh.vertices_end(); ++vIt){
     Vec3f vert = mesh.point(vIt);
-    double effect = 0.5 * abs(octave_noise_3d(5.0, 0.25, 2.0, vert[0]/xDist, vert[1]/yDist, vert[2]/zDist));
+    double effect = 0.5 * octave_noise_3d(5.0, 0.5, 1.3, vert[0]/scale, vert[1]/scale, vert[2]/scale);
     Vec3f shift(effect*mesh.normal(vIt)[0], effect*mesh.normal(vIt)[1], effect*mesh.normal(vIt)[2]);
     mesh.set_point(vIt, mesh.point(vIt) - shift);
   }
 
   mesh.update_normals();
-  mesh.release_face_normals();
+  //mesh.release_face_normals();
   IO::Options wopt;
   wopt += IO::Options::VertexNormal;
   wopt += IO::Options::VertexTexCoord;
@@ -722,26 +738,25 @@ void reshape(int width, int height) {
 }
 
 int main(int argc, char** argv) {
-  // up = Vec3f(0, 1, 0);
-  // pan = Vec3f(0, 0, 0);
-  // Vec3f center = Vec3f(0, 0, 0);
+  up = Vec3f(0, 1, 0);
+  pan = Vec3f(0, 0, 0);
+  Vec3f center = Vec3f(0, 0, 0);
 
-  // glutInit(&argc, argv); 
-  // glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); 
-  // glutInitWindowSize(windowWidth, windowHeight); 
-  // glutCreateWindow(argv[0]);
+  glutInit(&argc, argv); 
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); 
+  glutInitWindowSize(windowWidth, windowHeight); 
+  glutCreateWindow(argv[0]);
   
-  // init();
-  //meshSpec = readControlPts("control.txt");
+  init();
   createCaveMesh();
 
-  // glutDisplayFunc(display);
-  // glutMotionFunc(mouseMoved);
-  // glutMouseFunc(mouse);
-  // glutReshapeFunc(reshape);
-  // glutKeyboardFunc(keyboard);
+  glutDisplayFunc(display);
+  glutMotionFunc(mouseMoved);
+  glutMouseFunc(mouse);
+  glutReshapeFunc(reshape);
+  glutKeyboardFunc(keyboard);
 
-  // glutMainLoop();
+  glutMainLoop();
   
   return 0;
 }
